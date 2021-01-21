@@ -8,6 +8,15 @@ from torchvision.utils import save_image
 
 import models
 
+def compute_loss(x, x_recon, z, v_dist, model, args):
+    if args.kld == 'eric':
+        bce, kl = model.approximate_loss(x, x_recon, v_dist)
+    else:
+        bce, kl = model.loss(x, x_recon, z, v_dist)
+    elbo = -bce - kl
+    loss = -elbo
+    return loss
+
 def train(epoch, model, train_loader, optimizer, device, args):
     model = model.train()
 
@@ -22,13 +31,8 @@ def train(epoch, model, train_loader, optimizer, device, args):
             temp = max(torch.tensor(args.init_temp) * np.exp(-n_updates*args.temp_anneal), torch.tensor(args.min_temp))
         
         # compute & optimize the loss function
-        log_alpha, z, x_recon = model(x)
-        if args.kld == 'eric':
-            bce, kl = model.approximate_loss(x, x_recon, log_alpha)
-        else:
-            bce, kl = model.loss(x, x_recon, z, log_alpha)
-        elbo = -bce - kl
-        loss = -elbo
+        z, x_recon, v_dist = model(x)
+        loss = compute_loss(x, x_recon, z, v_dist, model, args)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -49,13 +53,8 @@ def test(epoch, model, test_loader, device, args):
             x = x.view(x.size(0), -1)
 
             # compute the loss function
-            log_alpha, z, x_recon = model(x)
-            if args.kld == 'eric':
-                bce, kl = model.approximate_loss(x, x_recon, log_alpha)
-            else:
-                bce, kl = model.loss(x, x_recon, z, log_alpha)
-            elbo = -bce - kl
-            loss = -elbo
+            z, x_recon, v_dist = model(x)
+            loss = compute_loss(x, x_recon, z, v_dist, model, args)
             test_loss += loss
 
             # save reconstructed figure
@@ -85,7 +84,7 @@ def main(args):
             args.data, train=False, transform=transforms.ToTensor()),
             batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    Model = getattr(models, args.model)
+    Model = getattr(models, args.sampling)
     model = Model(args.init_temp, args.latent_num, args.latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -117,8 +116,8 @@ if __name__ == '__main__':
     parser.add_argument('--temp-interval', type=float, default=300)
     parser.add_argument('--min-temp', type=float, default=0.5)
 
-    parser.add_argument('--sampling', type=str, default='NaiveModel',
-                        help='example: NaiveModel samples naively, TDModel utilizes torch.distributions.relaxed')
+    parser.add_argument('--sampling', type=str, default='TDModel',
+                        help='example: TDModel utilizes torch.distributions.relaxed, ExpTDModel stabilizes loss function')
     parser.add_argument('--kld', type=str, default='eric',
                         help='example: eric, madisson')
 
