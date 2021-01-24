@@ -29,6 +29,7 @@ def train(epoch, model, train_loader, optimizer, device, args):
         if i % args.temp_interval == 0:
             n_updates = epoch * len(train_loader) + i
             temp = max(torch.tensor(args.init_temp) * np.exp(-n_updates*args.temp_anneal), torch.tensor(args.min_temp))
+            model.temp = temp
         
         # compute & optimize the loss function
         z, x_recon, v_dist = model(x)
@@ -102,7 +103,7 @@ if __name__ == '__main__':
                         help='the number of latent variables')
     parser.add_argument('--latent-dim', type=int, default=10, metavar='N',
                         help='the dimension for each latent variables')
-    parser.add_argument('--epochs', type=int, default=10, metavar='N',
+    parser.add_argument('--epochs', type=int, default=30, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--cuda', action='store_true', default=True,
                         help='enables CUDA training')
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--init-temp', type=float, default=1.0)
     parser.add_argument('--temp-anneal', type=float, default=0.00009)
     parser.add_argument('--temp-interval', type=float, default=300)
-    parser.add_argument('--min-temp', type=float, default=0.5)
+    parser.add_argument('--min-temp', type=float, default=0.1)
 
     parser.add_argument('--sampling', type=str, default='TDModel',
                         help='example: TDModel utilizes torch.distributions.relaxed, ExpTDModel stabilizes loss function')

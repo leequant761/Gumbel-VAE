@@ -25,7 +25,7 @@ python main.py --sampling=TDModel --kld=madisson
 Maddison's treatment : prior distribution as ExpConcrete Distribution
 
 ```
-python main.py --sampling=TDModel --kld=madisson
+python main.py --sampling=ExpTDModel --kld=madisson
 ```
 
 # Results
@@ -33,3 +33,5 @@ python main.py --sampling=TDModel --kld=madisson
 Maddison's way is sensitive and hard to optimize, but Jang's trick is easy to optimize.
 
 Furthermore, Maddison's treatment for numerical issue has no effect in discrete-VAE.
+
+`args.min_temp` mainly determines the degree of discreteness.

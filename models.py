@@ -12,18 +12,27 @@ class Model(nn.Module):
         super(Model, self).__init__()
         if type(temp) != torch.Tensor:
             temp = torch.tensor(temp)
-        self.temp = temp
+        self.__temp = temp
         self.latent_num = latent_num
         self.latent_dim = latent_dim
         self.encoder = Encoder(latent_num=latent_num, latent_dim=latent_dim)
         self.decoder = Decoder(latent_num=latent_num, latent_dim=latent_dim)
         if 'ExpTDModel' in  str(self.__class__):
-            self.prior = ExpRelaxedCategorical(self.temp, probs=torch.ones(latent_dim).cuda())
+            self.prior = ExpRelaxedCategorical(temp, probs=torch.ones(latent_dim).cuda())
         else:
-            self.prior = dist.RelaxedOneHotCategorical(self.temp, probs=torch.ones(latent_dim).cuda())
+            self.prior = dist.RelaxedOneHotCategorical(temp, probs=torch.ones(latent_dim).cuda())
         self.initialize()
 
         self.softmax = nn.Softmax(dim=-1)
+
+    @property
+    def temp(self):
+        return self.__temp
+
+    @temp.setter
+    def temp(self, value):
+        self.__temp = value
+        self.prior.temperature = value
 
     def initialize(self):
         for param in self.parameters():
