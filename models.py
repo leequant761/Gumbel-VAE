@@ -32,7 +32,10 @@ class Model(nn.Module):
     @temp.setter
     def temp(self, value):
         self.__temp = value
-        self.prior.temperature = value
+        if 'ExpTDModel' in  str(self.__class__):
+            self.prior = ExpRelaxedCategorical(value, probs=torch.ones(self.latent_dim).cuda())
+        else:
+            self.prior = dist.RelaxedOneHotCategorical(value, probs=torch.ones(self.latent_dim).cuda())
 
     def initialize(self):
         for param in self.parameters():
@@ -54,14 +57,14 @@ class Model(nn.Module):
             x_recon = self.decode(z.view(-1, self.latent_num*self.latent_dim))
         return z, x_recon, v_dist
 
-    def approximate_loss(self, x, x_recon, v_dist):
+    def approximate_loss(self, x, x_recon, v_dist, eps=1e-3):
         """ KL-divergence follows Eric Jang's trick
         """
         log_alpha = v_dist.logits
         bce = F.binary_cross_entropy(x_recon, x.view(-1, 784), reduction='sum')
         num_class = torch.tensor(self.latent_dim).float()
         probs = torch.softmax(log_alpha, dim=-1) # alpha_i / alpha_sum
-        kl = (probs * (num_class * probs).log()).sum()
+        kl = torch.sum(probs * (num_class * (probs + eps)).log(), dim=-1).sum()
         return bce, kl
 
     def loss(self, x, x_recon, z, v_dist):
